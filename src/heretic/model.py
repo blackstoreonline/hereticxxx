@@ -30,7 +30,7 @@ from transformers.generation import (
 )
 
 from .config import QuantizationMethod, RowNormalization, Settings
-from .utils import Prompt, batchify, empty_cache, print
+from .utils import Prompt, batchify, empty_cache, print, print_per_device_memory_usage
 
 
 def get_model_class(
@@ -111,6 +111,17 @@ class Model:
                     **extra_kwargs,
                 )
 
+                # Enable gradient checkpointing if requested
+                if settings.use_gradient_checkpointing:
+                    if hasattr(self.model, "gradient_checkpointing_enable"):
+                        self.model.gradient_checkpointing_enable()
+                        print("[grey50]  (gradient checkpointing enabled)[/]", end=" ")
+                    else:
+                        print(
+                            "[yellow]  (gradient checkpointing not supported for this model)[/]",
+                            end=" ",
+                        )
+
                 # If we reach this point and the model requires trust_remote_code,
                 # either the user accepted, or settings.trust_remote_code is True.
                 if self.trusted_models.get(settings.model) is None:
@@ -144,6 +155,9 @@ class Model:
         if self.model is None:
             raise Exception("Failed to load model with all configured dtypes.")
 
+        # Validate device placement for multi-GPU setups
+        self._validate_device_placement()
+
         self._apply_lora()
 
         # LoRA B matrices are initialized to zero by default in PEFT,
@@ -154,6 +168,33 @@ class Model:
         for component, modules in self.get_layer_modules(0).items():
             print(
                 f"  * [bold]{component}[/]: [bold]{len(modules)}[/] modules per layer"
+            )
+
+    def _validate_device_placement(self):
+        """Validate that model is properly distributed across devices in multi-GPU setups."""
+        if not torch.cuda.is_available():
+            return
+        
+        device_count = torch.cuda.device_count()
+        if device_count <= 1:
+            return
+        
+        # Check which devices have model parameters
+        devices_with_params = set()
+        for param in self.model.parameters():
+            if param.device.type == "cuda" and param.device.index is not None:
+                devices_with_params.add(param.device.index)
+        
+        if len(devices_with_params) > 1:
+            print(
+                f"[grey50]  Model distributed across GPUs: {sorted(devices_with_params)}[/]"
+            )
+            # Display per-device memory usage after model loading
+            print_per_device_memory_usage()
+        elif len(devices_with_params) == 1 and device_count > 1:
+            print(
+                f"[yellow]  Warning: Model loaded on GPU {list(devices_with_params)[0]} only. "
+                f"Multi-GPU setup detected but not utilized.[/]"
             )
 
     def _apply_lora(self):

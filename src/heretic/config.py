@@ -115,6 +115,23 @@ class Settings(BaseSettings):
         description="Whether to trust remote code when loading the model.",
     )
 
+    use_gradient_checkpointing: bool = Field(
+        default=False,
+        description=(
+            "Enable gradient checkpointing during model operations. "
+            "Note: This is primarily useful for training or fine-tuning, not inference. "
+            "For inference-only workloads (the default), this setting may not provide memory benefits."
+        ),
+    )
+
+    prewarm_gpu_memory: bool = Field(
+        default=False,
+        description=(
+            "Pre-allocate and free GPU memory before model loading to reduce fragmentation. "
+            "Recommended for multi-GPU setups to prevent OOM errors during initialization."
+        ),
+    )
+
     batch_size: int = Field(
         default=0,  # auto
         description="Number of input sequences to process in parallel (0 = auto).",
