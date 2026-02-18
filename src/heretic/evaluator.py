@@ -6,6 +6,7 @@ from torch import Tensor
 
 from .config import Settings
 from .model import Model
+from .refusal_detector import RefusalDetector
 from .utils import Prompt, load_prompts, print
 
 
@@ -16,10 +17,14 @@ class Evaluator:
     bad_prompts: list[Prompt]
     base_logprobs: Tensor
     base_refusals: int
+    refusal_detector: RefusalDetector
 
     def __init__(self, settings: Settings, model: Model):
         self.settings = settings
         self.model = model
+        
+        # Initialize efficient refusal detector
+        self.refusal_detector = RefusalDetector(settings.refusal_markers)
 
         print()
         print(
@@ -58,11 +63,8 @@ class Evaluator:
         # Normalize whitespace between words to a single space.
         response = " ".join(response.split())
 
-        for marker in self.settings.refusal_markers:
-            if marker.lower() in response:
-                return True
-
-        return False
+        # Use efficient refusal detector for O(n) or optimized O(n×m) matching
+        return self.refusal_detector.is_refusal(response)
 
     def count_refusals(self) -> int:
         refusal_count = 0

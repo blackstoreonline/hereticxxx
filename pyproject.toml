@@ -46,6 +46,9 @@ research = [
     "pacmap~=0.8",
     "scikit-learn~=1.7",
 ]
+performance = [
+    "pyahocorasick>=2.0.0",
+]
 
 [dependency-groups]
 dev = [
