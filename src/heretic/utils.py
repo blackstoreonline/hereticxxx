@@ -74,13 +74,13 @@ def get_cached_device_info(force_refresh: bool = False) -> dict[str, Any]:
     return info
 
 
-def prewarm_gpu_memory(device_count: int, warmup_size_mb: int = 100) -> bool:
+def prewarm_gpu_memory(device_count: int, prewarm_size_mb: int = 100) -> bool:
     """
     Pre-allocate and free memory on GPUs to reduce fragmentation and prevent OOM.
     
     Args:
         device_count: Number of GPU devices to prewarm.
-        warmup_size_mb: Size of warmup allocation in MB per device.
+        prewarm_size_mb: Size of prewarm allocation in MB per device.
     
     Returns:
         True if successful, False otherwise.
@@ -90,7 +90,7 @@ def prewarm_gpu_memory(device_count: int, warmup_size_mb: int = 100) -> bool:
             return False
         
         warmup_tensors = []
-        size = warmup_size_mb * 1024 * 1024 // 4  # 4 bytes per float32
+        size = prewarm_size_mb * 1024 * 1024 // 4  # 4 bytes per float32
         
         for i in range(device_count):
             # Allocate a tensor on each device

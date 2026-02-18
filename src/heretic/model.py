@@ -182,7 +182,7 @@ class Model:
         # Check which devices have model parameters
         devices_with_params = set()
         for param in self.model.parameters():
-            if param.device.type == "cuda":
+            if param.device.type == "cuda" and param.device.index is not None:
                 devices_with_params.add(param.device.index)
         
         if len(devices_with_params) > 1:
