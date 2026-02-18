@@ -44,9 +44,11 @@ from .utils import (
     empty_cache,
     format_duration,
     get_auto_max_memory,
+    get_cached_device_info,
     get_readme_intro,
     get_trial_parameters,
     load_prompts,
+    prewarm_gpu_memory,
     print,
     print_memory_usage,
     print_per_device_memory_usage,
@@ -183,8 +185,11 @@ def run():
         return
 
     # Adapted from https://github.com/huggingface/accelerate/blob/main/src/accelerate/commands/env.py
-    if torch.cuda.is_available():
-        count = torch.cuda.device_count()
+    # Cache device info for reuse throughout the program
+    device_info = get_cached_device_info()
+    
+    if device_info["has_cuda"]:
+        count = device_info["cuda_device_count"]
         total_vram = sum(torch.cuda.mem_get_info(i)[1] for i in range(count))
         print(
             f"Detected [bold]{count}[/] CUDA device(s) ({total_vram / (1024**3):.2f} GB total VRAM):"
@@ -192,13 +197,13 @@ def run():
         for i in range(count):
             vram = torch.cuda.mem_get_info(i)[1] / (1024**3)
             print(
-                f"* GPU {i}: [bold]{torch.cuda.get_device_name(i)}[/] ({vram:.2f} GB)"
+                f"* GPU {i}: [bold]{device_info['cuda_device_names'][i]}[/] ({vram:.2f} GB)"
             )
-    elif is_xpu_available():
-        count = torch.xpu.device_count()
+    elif device_info["has_xpu"]:
+        count = device_info["xpu_device_count"]
         print(f"Detected [bold]{count}[/] XPU device(s):")
         for i in range(count):
-            print(f"* XPU {i}: [bold]{torch.xpu.get_device_name(i)}[/]")
+            print(f"* XPU {i}: [bold]{device_info['xpu_device_names'][i]}[/]")
     elif is_mlu_available():
         count = torch.mlu.device_count()  # ty:ignore[unresolved-attribute]
         print(f"Detected [bold]{count}[/] MLU device(s):")
@@ -248,6 +253,19 @@ def run():
             print(
                 "[grey50]Tip: You can customize these limits using the max_memory configuration option.[/]"
             )
+
+    # Pre-warm GPU memory if requested
+    if settings.prewarm_gpu_memory and torch.cuda.is_available():
+        device_count = torch.cuda.device_count()
+        if device_count > 0:
+            print()
+            print(f"[bold]Pre-warming GPU memory for {device_count} device(s)...[/]")
+            if prewarm_gpu_memory(device_count):
+                print("[green]GPU memory pre-warming completed successfully[/]")
+            else:
+                print(
+                    "[yellow]GPU memory pre-warming failed, continuing without pre-warming[/]"
+                )
 
     # We don't need gradients as we only do inference.
     torch.set_grad_enabled(False)

@@ -155,6 +155,9 @@ class Model:
         if self.model is None:
             raise Exception("Failed to load model with all configured dtypes.")
 
+        # Validate device placement for multi-GPU setups
+        self._validate_device_placement()
+
         self._apply_lora()
 
         # LoRA B matrices are initialized to zero by default in PEFT,
@@ -165,6 +168,33 @@ class Model:
         for component, modules in self.get_layer_modules(0).items():
             print(
                 f"  * [bold]{component}[/]: [bold]{len(modules)}[/] modules per layer"
+            )
+
+    def _validate_device_placement(self):
+        """Validate that model is properly distributed across devices in multi-GPU setups."""
+        if not torch.cuda.is_available():
+            return
+        
+        device_count = torch.cuda.device_count()
+        if device_count <= 1:
+            return
+        
+        # Check which devices have model parameters
+        devices_with_params = set()
+        for param in self.model.parameters():
+            if param.device.type == "cuda":
+                devices_with_params.add(param.device.index)
+        
+        if len(devices_with_params) > 1:
+            print(
+                f"[grey50]  Model distributed across GPUs: {sorted(devices_with_params)}[/]"
+            )
+            # Display per-device memory usage after model loading
+            print_per_device_memory_usage()
+        elif len(devices_with_params) == 1 and device_count > 1:
+            print(
+                f"[yellow]  Warning: Model loaded on GPU {list(devices_with_params)[0]} only. "
+                f"Multi-GPU setup detected but not utilized.[/]"
             )
 
     def _apply_lora(self):

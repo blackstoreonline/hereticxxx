@@ -123,6 +123,14 @@ class Settings(BaseSettings):
         ),
     )
 
+    prewarm_gpu_memory: bool = Field(
+        default=False,
+        description=(
+            "Pre-allocate and free GPU memory before model loading to reduce fragmentation. "
+            "Recommended for multi-GPU setups to prevent OOM errors during initialization."
+        ),
+    )
+
     batch_size: int = Field(
         default=0,  # auto
         description="Number of input sequences to process in parallel (0 = auto).",

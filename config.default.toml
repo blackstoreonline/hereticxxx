@@ -35,6 +35,11 @@ device_map = "auto"
 # Particularly beneficial for multi-GPU setups with memory constraints.
 use_gradient_checkpointing = false
 
+# Pre-allocate and free GPU memory before model loading to reduce fragmentation.
+# Recommended for multi-GPU setups to prevent OOM errors during initialization.
+# This helps "warm up" the memory allocator for more efficient subsequent allocations.
+prewarm_gpu_memory = false
+
 # Number of input sequences to process in parallel (0 = auto).
 batch_size = 0  # auto
 

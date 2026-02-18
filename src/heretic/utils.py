@@ -31,6 +31,82 @@ from .config import DatasetSpecification, Settings
 print = Console(highlight=False).print
 
 
+# Global cache for device information to avoid repeated queries
+_device_info_cache: dict[str, Any] = {}
+
+
+def get_cached_device_info(force_refresh: bool = False) -> dict[str, Any]:
+    """
+    Get cached device information to reduce overhead of repeated queries.
+    
+    Args:
+        force_refresh: If True, bypass cache and query devices again.
+    
+    Returns:
+        Dictionary with device counts and capabilities.
+    """
+    global _device_info_cache
+    
+    if not force_refresh and _device_info_cache:
+        return _device_info_cache
+    
+    info = {
+        "has_cuda": torch.cuda.is_available(),
+        "has_xpu": is_xpu_available(),
+        "has_mps": torch.backends.mps.is_available(),
+        "has_mlu": is_mlu_available(),
+        "has_musa": is_musa_available(),
+        "has_sdaa": is_sdaa_available(),
+    }
+    
+    if info["has_cuda"]:
+        info["cuda_device_count"] = torch.cuda.device_count()
+        info["cuda_device_names"] = [
+            torch.cuda.get_device_name(i) for i in range(info["cuda_device_count"])
+        ]
+    elif info["has_xpu"]:
+        info["xpu_device_count"] = torch.xpu.device_count()
+        info["xpu_device_names"] = [
+            torch.xpu.get_device_name(i) for i in range(info["xpu_device_count"])
+        ]
+    
+    _device_info_cache = info
+    return info
+
+
+def prewarm_gpu_memory(device_count: int, warmup_size_mb: int = 100) -> bool:
+    """
+    Pre-allocate and free memory on GPUs to reduce fragmentation and prevent OOM.
+    
+    Args:
+        device_count: Number of GPU devices to prewarm.
+        warmup_size_mb: Size of warmup allocation in MB per device.
+    
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        if not torch.cuda.is_available():
+            return False
+        
+        warmup_tensors = []
+        size = warmup_size_mb * 1024 * 1024 // 4  # 4 bytes per float32
+        
+        for i in range(device_count):
+            # Allocate a tensor on each device
+            tensor = torch.zeros(size, dtype=torch.float32, device=f"cuda:{i}")
+            warmup_tensors.append(tensor)
+        
+        # Free the tensors
+        del warmup_tensors
+        torch.cuda.empty_cache()
+        
+        return True
+    except Exception as e:
+        print(f"[yellow]Warning: GPU memory pre-warming failed: {e}[/]")
+        return False
+
+
 def print_memory_usage():
     def p(label: str, size_in_bytes: int):
         print(f"[grey50]{label}: [bold]{size_in_bytes / (1024**3):.2f} GB[/][/]")
