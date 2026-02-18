@@ -104,6 +104,25 @@ save the model, upload it to Hugging Face, chat with it to test how well it work
 or any combination of those actions.
 
 
+## Performance Optimization
+
+Heretic includes several performance optimizations to improve efficiency.
+For the best performance, install the optional `performance` extra:
+
+```
+pip install -U heretic-llm[performance]
+```
+
+This installs additional libraries that enable optimizations such as:
+* O(n) string matching for refusal detection (20-40 seconds faster over 200 trials)
+* More efficient batch processing
+
+For a comprehensive overview of the efficiency improvements and optimization
+strategies, see [EFFICIENCY_IMPROVEMENTS.md](EFFICIENCY_IMPROVEMENTS.md).
+These optimizations provide an expected 20-40% reduction in runtime with
+15-30% lower memory usage.
+
+
 ## Research features
 
 In addition to its primary function of removing model censorship, Heretic also
