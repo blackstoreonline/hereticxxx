@@ -53,10 +53,17 @@ class RefusalDetector:
         """Check if a response contains refusal markers.
         
         Args:
-            response: The model response to check (should already be normalized)
+            response: The model response to check. Should be lowercase and 
+                     normalized (whitespace, apostrophes, etc.) by the caller
+                     for optimal performance.
             
         Returns:
             True if response contains any refusal marker, False otherwise
+            
+        Note:
+            The Evaluator.is_refusal() method performs normalization before
+            calling this method. If using this detector directly, ensure the
+            response is preprocessed appropriately.
         """
         if self.use_automaton:
             # O(n) search using Aho-Corasick automaton
