@@ -115,6 +115,14 @@ class Settings(BaseSettings):
         description="Whether to trust remote code when loading the model.",
     )
 
+    use_gradient_checkpointing: bool = Field(
+        default=False,
+        description=(
+            "Enable gradient checkpointing to reduce memory usage during inference. "
+            "This trades computation for memory and is useful for large models on limited VRAM."
+        ),
+    )
+
     batch_size: int = Field(
         default=0,  # auto
         description="Number of input sequences to process in parallel (0 = auto).",

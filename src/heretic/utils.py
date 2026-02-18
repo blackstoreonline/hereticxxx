@@ -54,6 +54,130 @@ def print_memory_usage():
         p("Driver (reserved) MPS memory", torch.mps.driver_allocated_memory())
 
 
+def get_device_memory_info() -> dict[int, dict[str, int]]:
+    """
+    Get detailed memory information for each GPU device.
+    
+    Returns:
+        Dictionary mapping device index to memory info (total, free, allocated, reserved).
+    """
+    device_info = {}
+    
+    if torch.cuda.is_available():
+        count = torch.cuda.device_count()
+        for i in range(count):
+            free, total = torch.cuda.mem_get_info(i)
+            allocated = torch.cuda.memory_allocated(i)
+            reserved = torch.cuda.memory_reserved(i)
+            device_info[i] = {
+                "total": total,
+                "free": free,
+                "allocated": allocated,
+                "reserved": reserved,
+            }
+    elif is_xpu_available():
+        count = torch.xpu.device_count()
+        for i in range(count):
+            allocated = torch.xpu.memory_allocated(i)
+            reserved = torch.xpu.memory_reserved(i)
+            device_info[i] = {
+                "total": 0,  # XPU doesn't provide total memory info
+                "free": 0,
+                "allocated": allocated,
+                "reserved": reserved,
+            }
+    
+    return device_info
+
+
+def get_auto_max_memory(reserve_ratio: float = 0.1) -> dict[str, str]:
+    """
+    Automatically determine max_memory settings for multi-GPU setups.
+    
+    Args:
+        reserve_ratio: Fraction of memory to reserve (0.0-1.0). Default 0.1 (10%).
+    
+    Returns:
+        Dictionary with per-device memory limits suitable for accelerate's max_memory parameter.
+    """
+    max_memory = {}
+    
+    if torch.cuda.is_available():
+        count = torch.cuda.device_count()
+        for i in range(count):
+            free, total = torch.cuda.mem_get_info(i)
+            # Use available memory minus reserve
+            usable = int(total * (1.0 - reserve_ratio))
+            max_memory[str(i)] = f"{usable // (1024**3)}GB"
+    elif is_xpu_available():
+        # XPU doesn't provide memory info, so we can't auto-configure
+        pass
+    
+    return max_memory
+
+
+def check_device_health() -> bool:
+    """
+    Perform health checks on available GPU devices.
+    
+    Returns:
+        True if all devices are healthy, False otherwise.
+    """
+    all_healthy = True
+    
+    if torch.cuda.is_available():
+        count = torch.cuda.device_count()
+        for i in range(count):
+            try:
+                # Test basic memory operations
+                free, total = torch.cuda.mem_get_info(i)
+                
+                # Check if device has reasonable free memory (at least 100MB)
+                if free < 100 * (1024**2):
+                    print(
+                        f"[yellow]Warning: GPU {i} has very little free memory ({free / (1024**2):.0f} MB)[/]"
+                    )
+                    all_healthy = False
+                
+                # Test tensor allocation on device
+                test_tensor = torch.zeros(1, device=f"cuda:{i}")
+                del test_tensor
+                torch.cuda.empty_cache()
+            except Exception as e:
+                print(f"[red]Error: GPU {i} health check failed: {e}[/]")
+                all_healthy = False
+    
+    return all_healthy
+
+
+def print_per_device_memory_usage():
+    """
+    Print detailed memory usage for each GPU device.
+    """
+    device_info = get_device_memory_info()
+    
+    if not device_info:
+        return
+    
+    print()
+    print("[bold]Per-device memory usage:[/]")
+    
+    for device_id, info in device_info.items():
+        if info["total"] > 0:
+            used_pct = (info["allocated"] / info["total"]) * 100
+            print(
+                f"  GPU {device_id}: "
+                f"[bold]{info['allocated'] / (1024**3):.2f} GB[/] / "
+                f"{info['total'] / (1024**3):.2f} GB "
+                f"([bold]{used_pct:.1f}%[/] used)"
+            )
+        else:
+            print(
+                f"  Device {device_id}: "
+                f"[bold]{info['allocated'] / (1024**3):.2f} GB[/] allocated"
+            )
+
+
 def is_notebook() -> bool:
     # Check for specific environment variables (Colab, Kaggle).
     # This is necessary because when running as a subprocess (e.g. !heretic),

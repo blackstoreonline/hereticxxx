@@ -25,7 +25,15 @@ quantization = "none"
 device_map = "auto"
 
 # Maximum memory to allocate per device.
+# Example: {"0": "20GB", "1": "20GB", "cpu": "64GB"}
+# Tip: For multi-GPU setups, Heretic can auto-detect optimal memory limits.
+# Leave this unset (commented out) to use automatic detection on multi-GPU systems.
 # max_memory = {"0": "20GB", "cpu": "64GB"}
+
+# Enable gradient checkpointing to reduce memory usage.
+# This trades computation for memory and is useful for large models on limited VRAM.
+# Particularly beneficial for multi-GPU setups with memory constraints.
+use_gradient_checkpointing = false
 
 # Number of input sequences to process in parallel (0 = auto).
 batch_size = 0  # auto
@@ -160,3 +168,40 @@ column = "text"
 dataset = "mlabonne/harmful_behaviors"
 split = "test[:100]"
 column = "text"
+
+# ==============================================================================
+# Multi-GPU Setup Best Practices
+# ==============================================================================
+# 
+# For optimal performance on multi-GPU systems:
+#
+# 1. MEMORY MANAGEMENT:
+#    - Leave max_memory unset for automatic per-GPU memory detection
+#    - Heretic will automatically reserve 15% of VRAM per GPU for safety
+#    - For manual control, set per-device limits: max_memory = {"0": "20GB", "1": "20GB"}
+#
+# 2. DEVICE PLACEMENT:
+#    - device_map = "auto" (default) works well for most cases
+#    - For specific layer placement: device_map = {"model.layers.0": 0, "model.layers.1": 1}
+#    - Consider "balanced" for equal distribution across GPUs
+#
+# 3. MEMORY OPTIMIZATION:
+#    - Enable use_gradient_checkpointing = true for large models
+#    - Use quantization = "bnb_4bit" to reduce VRAM usage by ~75%
+#    - Lower max_batch_size if experiencing OOM errors
+#
+# 4. ENVIRONMENT VARIABLES (automatically configured by Heretic):
+#    - PYTORCH_CUDA_ALLOC_CONF: Optimizes memory allocation and reduces fragmentation
+#    - For advanced tuning, set before running: 
+#      export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512"
+#
+# 5. MONITORING:
+#    - Watch for memory warnings during execution
+#    - Per-device memory usage is displayed during model loading
+#    - Use device health checks to identify problematic GPUs
+#
+# 6. TROUBLESHOOTING:
+#    - If one GPU has less memory, specify max_memory to balance the load
+#    - For OOM errors, try: lower batch_size, enable quantization, or gradient checkpointing
+#    - Ensure all GPUs are visible: check with nvidia-smi or torch.cuda.device_count()
+#

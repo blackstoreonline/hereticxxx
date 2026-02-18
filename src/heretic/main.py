@@ -40,13 +40,16 @@ from .config import QuantizationMethod, Settings
 from .evaluator import Evaluator
 from .model import AbliterationParameters, Model, get_model_class
 from .utils import (
+    check_device_health,
     empty_cache,
     format_duration,
+    get_auto_max_memory,
     get_readme_intro,
     get_trial_parameters,
     load_prompts,
     print,
     print_memory_usage,
+    print_per_device_memory_usage,
     prompt_password,
     prompt_path,
     prompt_select,
@@ -130,11 +133,19 @@ def obtain_merge_strategy(settings: Settings) -> str | None:
 
 def run():
     # Enable expandable segments to reduce memory fragmentation on multi-GPU setups.
+    # Also enable additional CUDA memory optimizations for better multi-GPU performance.
     if (
         "PYTORCH_ALLOC_CONF" not in os.environ
         and "PYTORCH_CUDA_ALLOC_CONF" not in os.environ
     ):
-        os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+        # Expandable segments: Reduces fragmentation in multi-GPU scenarios
+        # max_split_size_mb: Limits memory block splitting for better allocation
+        # roundup_power2_divisions: Improves memory pooling efficiency
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = (
+            "expandable_segments:True,"
+            "max_split_size_mb:512,"
+            "roundup_power2_divisions:4"
+        )
 
     # Modified "Pagga" font from https://budavariam.github.io/asciiart-text/
     print(f"[cyan]█░█░█▀▀░█▀▄░█▀▀░▀█▀░█░█▀▀[/]  v{version('heretic-llm')}")
@@ -211,6 +222,32 @@ def run():
         print(
             "[bold yellow]No GPU or other accelerator detected. Operations will be slow.[/]"
         )
+
+    # Perform device health checks for multi-GPU setups
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        print()
+        print("[bold]Performing multi-GPU health checks...[/]")
+        if not check_device_health():
+            print(
+                "[yellow]Warning: Some GPU devices may have issues. "
+                "Consider checking GPU availability before running intensive operations.[/]"
+            )
+
+    # Auto-configure max_memory if not set and multiple GPUs are available
+    if (
+        torch.cuda.is_available()
+        and torch.cuda.device_count() > 1
+        and settings.max_memory is None
+    ):
+        auto_max_memory = get_auto_max_memory(reserve_ratio=0.15)
+        if auto_max_memory:
+            print()
+            print("[bold]Auto-detected per-GPU memory limits:[/]")
+            for device, limit in auto_max_memory.items():
+                print(f"  GPU {device}: {limit}")
+            print(
+                "[grey50]Tip: You can customize these limits using the max_memory configuration option.[/]"
+            )
 
     # We don't need gradients as we only do inference.
     torch.set_grad_enabled(False)

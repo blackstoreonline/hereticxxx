@@ -30,7 +30,7 @@ from transformers.generation import (
 )
 
 from .config import QuantizationMethod, RowNormalization, Settings
-from .utils import Prompt, batchify, empty_cache, print
+from .utils import Prompt, batchify, empty_cache, print, print_per_device_memory_usage
 
 
 def get_model_class(
@@ -110,6 +110,17 @@ class Model:
                     trust_remote_code=self.trusted_models.get(settings.model),
                     **extra_kwargs,
                 )
+
+                # Enable gradient checkpointing if requested
+                if settings.use_gradient_checkpointing:
+                    if hasattr(self.model, "gradient_checkpointing_enable"):
+                        self.model.gradient_checkpointing_enable()
+                        print("[grey50]  (gradient checkpointing enabled)[/]", end=" ")
+                    else:
+                        print(
+                            "[yellow]  (gradient checkpointing not supported for this model)[/]",
+                            end=" ",
+                        )
 
                 # If we reach this point and the model requires trust_remote_code,
                 # either the user accepted, or settings.trust_remote_code is True.
