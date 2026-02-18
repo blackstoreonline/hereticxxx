@@ -184,7 +184,11 @@ def get_auto_max_memory(reserve_ratio: float = 0.15) -> dict[str, str]:
             free, total = torch.cuda.mem_get_info(i)
             # Use free memory minus reserve to avoid OOM
             usable = int(free * (1.0 - reserve_ratio))
-            max_memory[str(i)] = f"{usable // (1024**3)}GB"
+            # Convert to GB, but use MB if less than 1GB for better granularity
+            if usable >= 1024**3:
+                max_memory[str(i)] = f"{usable // (1024**3)}GB"
+            else:
+                max_memory[str(i)] = f"{usable // (1024**2)}MB"
     elif is_xpu_available():
         # XPU doesn't provide memory info, so we can't auto-configure
         pass

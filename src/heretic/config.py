@@ -118,8 +118,9 @@ class Settings(BaseSettings):
     use_gradient_checkpointing: bool = Field(
         default=False,
         description=(
-            "Enable gradient checkpointing to reduce memory usage during inference. "
-            "This trades computation for memory and is useful for large models on limited VRAM."
+            "Enable gradient checkpointing during model operations. "
+            "Note: This is primarily useful for training or fine-tuning, not inference. "
+            "For inference-only workloads (the default), this setting may not provide memory benefits."
         ),
     )
 

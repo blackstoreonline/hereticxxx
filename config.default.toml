@@ -30,9 +30,9 @@ device_map = "auto"
 # Leave this unset (commented out) to use automatic detection on multi-GPU systems.
 # max_memory = {"0": "20GB", "cpu": "64GB"}
 
-# Enable gradient checkpointing to reduce memory usage.
-# This trades computation for memory and is useful for large models on limited VRAM.
-# Particularly beneficial for multi-GPU setups with memory constraints.
+# Enable gradient checkpointing during model operations.
+# Note: Primarily useful for training/fine-tuning, not standard inference.
+# For inference-only workloads, this may not provide significant memory benefits.
 use_gradient_checkpointing = false
 
 # Pre-allocate and free GPU memory before model loading to reduce fragmentation.
@@ -191,7 +191,7 @@ column = "text"
 #    - Consider "balanced" for equal distribution across GPUs
 #
 # 3. MEMORY OPTIMIZATION:
-#    - Enable use_gradient_checkpointing = true for large models
+#    - Enable use_gradient_checkpointing = true for training/fine-tuning (not typically needed for inference)
 #    - Use quantization = "bnb_4bit" to reduce VRAM usage by ~75%
 #    - Lower max_batch_size if experiencing OOM errors
 #
