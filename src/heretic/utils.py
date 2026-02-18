@@ -166,12 +166,12 @@ def get_device_memory_info() -> dict[int, dict[str, int]]:
     return device_info
 
 
-def get_auto_max_memory(reserve_ratio: float = 0.1) -> dict[str, str]:
+def get_auto_max_memory(reserve_ratio: float = 0.15) -> dict[str, str]:
     """
     Automatically determine max_memory settings for multi-GPU setups.
     
     Args:
-        reserve_ratio: Fraction of memory to reserve (0.0-1.0). Default 0.1 (10%).
+        reserve_ratio: Fraction of memory to reserve (0.0-1.0). Default 0.15 (15%).
     
     Returns:
         Dictionary with per-device memory limits suitable for accelerate's max_memory parameter.
@@ -182,8 +182,8 @@ def get_auto_max_memory(reserve_ratio: float = 0.1) -> dict[str, str]:
         count = torch.cuda.device_count()
         for i in range(count):
             free, total = torch.cuda.mem_get_info(i)
-            # Use available memory minus reserve
-            usable = int(total * (1.0 - reserve_ratio))
+            # Use free memory minus reserve to avoid OOM
+            usable = int(free * (1.0 - reserve_ratio))
             max_memory[str(i)] = f"{usable // (1024**3)}GB"
     elif is_xpu_available():
         # XPU doesn't provide memory info, so we can't auto-configure
